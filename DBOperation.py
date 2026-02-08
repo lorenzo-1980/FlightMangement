@@ -1,204 +1,426 @@
 import sqlite3
 
-# Define DBOperation class to manage all data into the database.
-# Give a name of your choice to the database
+# This program connects to an SQLite database called FlightManagement.db.
+# It allows the user to create tables and perform basic CRUD operations
+# for flights, pilots, destinations, and pilot–flight assignments.
 
 
 class DBOperations:
-  sql_create_table_firsttime = "create table if not exists "
+    # DBOperations handles all database-related actions.
+    # This includes creating tables, inserting records,
+    # updating data, deleting records, and running queries.
 
-  sql_create_table = "create table TableName"
+    def __init__(self, db_name="FlightManagement.db"):
+        self.db_name = db_name
+        self.conn = None
+        self.cur = None
 
-  sql_insert = ""
-  sql_select_all = "select * from TableName"
-  sql_search = "select * from TableName where FlightID = ?"
-  sql_alter_data = ""
-  sql_update_data = ""
-  sql_delete_data = ""
-  sql_drop_table = ""
+        # SQL statements used to create the database tables.
+        # IF NOT EXISTS is used so tables are not recreated every time the program runs.
+        self.sql_create_pilot_table = """
+        CREATE TABLE IF NOT EXISTS Pilot (
+          PilotID INTEGER NOT NULL,
+          Rank VARCHAR(30),
+          Nationality VARCHAR(40),
+          Name VARCHAR(40),
+          Dob DATE,
+          HoursFlown INTEGER,
+          LicenseID VARCHAR(20),
+          PRIMARY KEY (PilotID)
+        );
+        """
 
-  def __init__(self):
-    try:
-      self.conn = sqlite3.connect("DBName.db")
-      self.cur = self.conn.cursor()
-      self.cur.execute(self.sql_create_table_firsttime)
-      self.conn.commit()
-    except Exception as e:
-      print(e)
-    finally:
-      self.conn.close()
+        # The Destination table stores airport and location details.
+        self.sql_create_destination_table = """
+        CREATE TABLE IF NOT EXISTS Destination (
+          DestinationID VARCHAR(20) NOT NULL,
+          Name VARCHAR(40),
+          Country VARCHAR(40),
+          DestinationDate DATE,
+          City VARCHAR(40) NOT NULL,
+          PRIMARY KEY (DestinationID)
+        );
+        """
 
-  def get_connection(self):
-    self.conn = sqlite3.connect("DBName.db")
-    self.cur = self.conn.cursor()
+        # The Flight table stores information about individual flights.
+        # Each flight is linked to a destination using DestinationID.
+        self.sql_create_flight_table = """
+        CREATE TABLE IF NOT EXISTS Flight (
+          FlightID VARCHAR(20) NOT NULL,
+          AircraftID VARCHAR(20),
+          Status VARCHAR(20) NOT NULL,
+          AirlineOperator VARCHAR(40) NOT NULL,
+          FlightArrivalTime TIME,
+          FlightDepartureTime TIME,
+          DestinationID VARCHAR(20) NOT NULL,
+          PRIMARY KEY (FlightID),
+          FOREIGN KEY (DestinationID) REFERENCES Destination(DestinationID)
+        );
+        """
 
-  def create_table(self):
-    try:
-      self.get_connection()
-      self.cur.execute(self.sql_create_table)
-      self.conn.commit()
-      print("Table created successfully")
-    except Exception as e:
-      print(e)
-    finally:
-      self.conn.close()
+        # The Assigned table is a junction table.
+        # It is used to represent the many-to-many relationship
+        # between pilots and flights.
+        self.sql_create_assigned_table = """
+        CREATE TABLE IF NOT EXISTS Assigned (
+          PilotID INTEGER NOT NULL,
+          FlightID VARCHAR(20) NOT NULL,
+          PRIMARY KEY (PilotID, FlightID),
+          FOREIGN KEY (PilotID) REFERENCES Pilot(PilotID),
+          FOREIGN KEY (FlightID) REFERENCES Flight(FlightID)
+        );
+        """
 
-  def insert_data(self):
-    try:
-      self.get_connection()
+        # SQL statement to insert a new flight record.
+        self.sql_insert_flight = """
+        INSERT INTO Flight (FlightID, AircraftID, Status, AirlineOperator, FlightArrivalTime, FlightDepartureTime, DestinationID)
+        VALUES (?, ?, ?, ?, ?, ?, ?);
+        """
 
-      flight = FlightInfo()
-      flight.set_flight_id(int(input("Enter FlightID: ")))
+        # SQL statements for viewing and searching flight records.
+        self.sql_select_all_flights = "SELECT * FROM Flight;"
+        self.sql_search_flight = "SELECT * FROM Flight WHERE FlightID = ?;"
 
-      self.cur.execute(self.sql_insert, tuple(str(flight).split("\n")))
+        # SQL statements for updating and deleting flights.
+        self.sql_update_flight_status = "UPDATE Flight SET Status = ? WHERE FlightID = ?;"
+        self.sql_delete_flight = "DELETE FROM Flight WHERE FlightID = ?;"
 
-      self.conn.commit()
-      print("Inserted data successfully")
-    except Exception as e:
-      print(e)
-    finally:
-      self.conn.close()
+        # SQL statement to insert a new destination record.
+        self.sql_insert_destination = """
+        INSERT INTO Destination (DestinationID, Name, Country, DestinationDate, City)
+        VALUES (?, ?, ?, ?, ?);
+        """
 
-  def select_all(self):
-    try:
-      self.get_connection()
-      self.cur.execute(self.sql_select_all)
-      result = self.cur.fetchall()
+        # SQL statements for viewing and updating destinations.
+        self.sql_select_all_destinations = "SELECT * FROM Destination;"
+        self.sql_update_destination = """
+        UPDATE Destination
+        SET Name = ?, Country = ?, DestinationDate = ?, City = ?
+        WHERE DestinationID = ?;
+        """
 
-      # think how you could develop this method to show the records
+        # SQL statements for assigning pilots to flights and viewing pilot schedules.
+        self.sql_assign_pilot = "INSERT INTO Assigned (PilotID, FlightID) VALUES (?, ?);"
+        self.sql_view_pilot_schedule = """
+        SELECT A.PilotID, A.FlightID, F.DestinationID, F.FlightDepartureTime, F.FlightArrivalTime, F.Status
+        FROM Assigned A
+        JOIN Flight F ON F.FlightID = A.FlightID
+        WHERE A.PilotID = ?
+        ORDER BY F.FlightDepartureTime;
+        """
 
-    except Exception as e:
-      print(e)
-    finally:
-      self.conn.close()
+    def get_connection(self):
+        # Opens a connection to the database and creates a cursor
+        # so SQL commands can be executed.
+        self.conn = sqlite3.connect(self.db_name)
+        self.conn.execute("PRAGMA foreign_keys = ON;")
+        self.cur = self.conn.cursor()
 
-  def search_data(self):
-    try:
-      self.get_connection()
-      flightID = int(input("Enter FlightNo: "))
-      self.cur.execute(self.sql_search, tuple(str(flightID)))
-      result = self.cur.fetchone()
-      if type(result) == type(tuple()):
-        for index, detail in enumerate(result):
-          if index == 0:
-            print("Flight ID: " + str(detail))
-          elif index == 1:
-            print("Flight Origin: " + detail)
-          elif index == 2:
-            print("Flight Destination: " + detail)
-          else:
-            print("Status: " + str(detail))
-      else:
-        print("No Record")
+    def close(self):
+        # Closes the database connection safely after each operation.
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+            self.cur = None
 
-    except Exception as e:
-      print(e)
-    finally:
-      self.conn.close()
+    def create_tables(self):
+        # Creates all required tables in the correct order
+        # so foreign key constraints work properly.
+        try:
+            self.get_connection()
+            self.cur.execute(self.sql_create_pilot_table)
+            self.cur.execute(self.sql_create_destination_table)
+            self.cur.execute(self.sql_create_flight_table)
+            self.cur.execute(self.sql_create_assigned_table)
+            self.conn.commit()
+            print("Tables created (or already exist).")
+        except Exception as e:
+            print("Error creating tables:", e)
+        finally:
+            self.close()
 
-  def update_data(self):
-    try:
-      self.get_connection()
+    # ---------- FLIGHT ----------
+    def add_new_flight(self):
+        # Adds a new flight to the database using user input.
+        try:
+            self.get_connection()
+            flight = FlightInfo()
 
-      # Update statement
+            flight.set_flight_id(input("Enter FlightID (e.g. FL001): ").strip())
+            flight.set_aircraft_id(input("Enter AircraftID (e.g. AC01): ").strip())
+            flight.set_status(input("Enter Status (e.g. Scheduled): ").strip())
+            flight.set_airline_operator(input("Enter AirlineOperator (e.g. BA): ").strip())
+            flight.set_arrival_time(input("Enter ArrivalTime (HH:MM) or leave blank: ").strip() or None)
+            flight.set_departure_time(input("Enter DepartureTime (HH:MM) or leave blank: ").strip() or None)
+            flight.set_destination_id(input("Enter DestinationID (e.g. DST01): ").strip())
 
-      if result.rowcount != 0:
-        print(str(result.rowcount) + "Row(s) affected.")
-      else:
-        print("Cannot find this record in the database")
+            self.cur.execute(self.sql_insert_flight, flight.as_tuple())
+            self.conn.commit()
+            print("Flight added.")
+        except Exception as e:
+            print("Error adding flight:", e)
+        finally:
+            self.close()
 
-    except Exception as e:
-      print(e)
-    finally:
-      self.conn.close()
+    def view_all_flights(self):
+        # Displays all flights currently stored in the database.
+        try:
+            self.get_connection()
+            self.cur.execute(self.sql_select_all_flights)
+            rows = self.cur.fetchall()
+            if not rows:
+                print("No flights found.")
+                return
+            for r in rows:
+                print(r)
+        except Exception as e:
+            print("Error viewing flights:", e)
+        finally:
+            self.close()
 
+    def search_flight(self):
+        # Searches for a specific flight using the FlightID.
+        try:
+            self.get_connection()
+            flight_id = input("Enter FlightID to search: ").strip()
+            self.cur.execute(self.sql_search_flight, (flight_id,))
+            row = self.cur.fetchone()
+            if row:
+                print(row)
+            else:
+                print("No Record")
+        except Exception as e:
+            print("Error searching flight:", e)
+        finally:
+            self.close()
 
-# Define Delete_data method to delete data from the table. The user will need to input the flight id to delete the corrosponding record.
+    def update_flight_status(self):
+        # Updates the status of a flight (for example: Scheduled, Delayed, Cancelled).
+        try:
+            self.get_connection()
+            flight_id = input("Enter FlightID to update: ").strip()
+            new_status = input("Enter new Status: ").strip()
+            self.cur.execute(self.sql_update_flight_status, (new_status, flight_id))
+            self.conn.commit()
+            if self.cur.rowcount:
+                print("Updated successfully.")
+            else:
+                print("Cannot find this record in the database")
+        except Exception as e:
+            print("Error updating flight:", e)
+        finally:
+            self.close()
 
-  def delete_data(self):
-    try:
-      self.get_connection()
+    def delete_flight(self):
+        # Deletes a flight from the database using its FlightID.
+        try:
+            self.get_connection()
+            flight_id = input("Enter FlightID to delete: ").strip()
+            self.cur.execute(self.sql_delete_flight, (flight_id,))
+            self.conn.commit()
+            if self.cur.rowcount:
+                print("Deleted successfully.")
+            else:
+                print("Cannot find this record in the database")
+        except Exception as e:
+            print("Error deleting flight:", e)
+        finally:
+            self.close()
 
-      if result.rowcount != 0:
-        print(str(result.rowcount) + "Row(s) affected.")
-      else:
-        print("Cannot find this record in the database")
+    # ---------- DESTINATION ----------
+    def add_destination(self):
+        # Adds a new destination to the database.
+        try:
+            self.get_connection()
+            dest_id = input("Enter DestinationID (e.g. DST01): ").strip()
+            name = input("Enter Destination Name (e.g. London Heathrow): ").strip()
+            country = input("Enter Country: ").strip()
+            dest_date = input("Enter DestinationDate (YYYY-MM-DD) or leave blank: ").strip() or None
+            city = input("Enter City: ").strip()
 
-    except Exception as e:
-      print(e)
-    finally:
-      self.conn.close()
+            self.cur.execute(self.sql_insert_destination, (dest_id, name, country, dest_date, city))
+            self.conn.commit()
+            print("Destination added.")
+        except Exception as e:
+            print("Error adding destination:", e)
+        finally:
+            self.close()
+
+    def view_destinations(self):
+        # Displays all destinations stored in the database.
+        try:
+            self.get_connection()
+            self.cur.execute(self.sql_select_all_destinations)
+            rows = self.cur.fetchall()
+            if not rows:
+                print("No destinations found.")
+                return
+            for r in rows:
+                print(r)
+        except Exception as e:
+            print("Error viewing destinations:", e)
+        finally:
+            self.close()
+
+    def update_destination(self):
+        # Updates destination information such as name, country, or date.
+        try:
+            self.get_connection()
+            dest_id = input("Enter DestinationID to update: ").strip()
+            name = input("New Name: ").strip()
+            country = input("New Country: ").strip()
+            dest_date = input("New DestinationDate (YYYY-MM-DD) or leave blank: ").strip() or None
+            city = input("New City: ").strip()
+
+            self.cur.execute(self.sql_update_destination, (name, country, dest_date, city, dest_id))
+            self.conn.commit()
+            if self.cur.rowcount:
+                print("Destination updated.")
+            else:
+                print("Destination not found.")
+        except Exception as e:
+            print("Error updating destination:", e)
+        finally:
+            self.close()
+
+    # ---------- PILOT–FLIGHT ASSIGNMENT ----------
+    def assign_pilot_to_flight(self):
+        # Assigns a pilot to a flight by inserting a record
+        # into the Assigned table.
+        try:
+            self.get_connection()
+            pilot_id = int(input("Enter PilotID: ").strip())
+            flight_id = input("Enter FlightID: ").strip()
+
+            self.cur.execute(self.sql_assign_pilot, (pilot_id, flight_id))
+            self.conn.commit()
+            print("Pilot assigned to flight.")
+        except Exception as e:
+            print("Error assigning pilot:", e)
+        finally:
+            self.close()
+
+    def view_pilot_schedule(self):
+        # Displays all flights assigned to a specific pilot.
+        try:
+            self.get_connection()
+            pilot_id = int(input("Enter PilotID: ").strip())
+            self.cur.execute(self.sql_view_pilot_schedule, (pilot_id,))
+            rows = self.cur.fetchall()
+            if not rows:
+                print("No schedule found for this pilot.")
+                return
+            for r in rows:
+                print(r)
+        except Exception as e:
+            print("Error viewing schedule:", e)
+        finally:
+            self.close()
 
 
 class FlightInfo:
+    # FlightInfo is used to temporarily store flight data
+    # entered by the user before it is inserted into the database.
 
-  def __init__(self):
-    self.flightID = 0
-    self.flightOrigin = ''
-    self.flightDestination = ''
-    self.status = ''
+    def __init__(self):
+        self.flightID = ""
+        self.aircraftID = ""
+        self.status = ""
+        self.airlineOperator = ""
+        self.flightArrivalTime = None
+        self.flightDepartureTime = None
+        self.destinationID = ""
 
-  def set_flight_id(self, flightID):
-    self.flightID = flightID
+    def set_flight_id(self, flightID):
+        self.flightID = flightID
 
-  def set_flight_origin(self, flightOrigin):
-    self.flight_origin = flightOrigin
+    def set_aircraft_id(self, aircraftID):
+        self.aircraftID = aircraftID
 
-  def set_flight_destination(self, flightDestination):
-    self.flight_destination = flightDestination
+    def set_status(self, status):
+        self.status = status
 
-  def set_status(self, status):
-    self.status = status
+    def set_airline_operator(self, airlineOperator):
+        self.airlineOperator = airlineOperator
 
-  def get_flight_id(self):
-    return self.flightID
+    def set_arrival_time(self, arrival_time):
+        self.flightArrivalTime = arrival_time
 
-  def get_flight_origin(self):
-    return self.flightOrigin
+    def set_departure_time(self, departure_time):
+        self.flightDepartureTime = departure_time
 
-  def get_flight_destination(self):
-    return self.flightDestination
+    def set_destination_id(self, destinationID):
+        self.destinationID = destinationID
 
-  def get_status(self):
-    return self.status
+    def as_tuple(self):
+        # Converts the flight object into a tuple
+        # so it can be used safely in SQL parameterised queries.
+        return (
+            self.flightID,
+            self.aircraftID,
+            self.status,
+            self.airlineOperator,
+            self.flightArrivalTime,
+            self.flightDepartureTime,
+            self.destinationID,
+        )
 
-  def __str__(self):
-    return str(
-      self.flightID
-    ) + "\n" + self.flightOrigin + "\n" + self.flightDestination + "\n" + str(
-      self.status)
+
+def main():
+    # Displays a menu that allows the user to interact with the system.
+    # The program continues running until the user chooses to exit.
+    db_ops = DBOperations()
+
+    while True:
+        print("\n Menu:")
+        print("**********")
+        print(" 1. Create tables (Pilot, Destination, Flight, Assigned)")
+        print(" 2. Add a New Flight")
+        print(" 3. View all Flights")
+        print(" 4. Search a Flight (by FlightID)")
+        print(" 5. Update Flight Status")
+        print(" 6. Delete a Flight")
+        print(" 7. Add Destination")
+        print(" 8. View Destinations")
+        print(" 9. Update Destination")
+        print("10. Assign Pilot to Flight")
+        print("11. View Pilot Schedule")
+        print("12. Exit\n")
+
+        try:
+            choice = int(input("Enter your choice: "))
+        except ValueError:
+            print("Please enter a number.")
+            continue
+
+        if choice == 1:
+            db_ops.create_tables()
+        elif choice == 2:
+            db_ops.add_new_flight()
+        elif choice == 3:
+            db_ops.view_all_flights()
+        elif choice == 4:
+            db_ops.search_flight()
+        elif choice == 5:
+            db_ops.update_flight_status()
+        elif choice == 6:
+            db_ops.delete_flight()
+        elif choice == 7:
+            db_ops.add_destination()
+        elif choice == 8:
+            db_ops.view_destinations()
+        elif choice == 9:
+            db_ops.update_destination()
+        elif choice == 10:
+            db_ops.assign_pilot_to_flight()
+        elif choice == 11:
+            db_ops.view_pilot_schedule()
+        elif choice == 12:
+            print("Bye!")
+            break
+        else:
+            print("Invalid Choice")
 
 
-# The main function will parse arguments.
-# These argument will be definded by the users on the console.
-# The user will select a choice from the menu to interact with the database.
-
-while True:
-  print("\n Menu:")
-  print("**********")
-  print(" 1. Create table FlightInfo")
-  print(" 2. Insert data into FlightInfo")
-  print(" 3. Select all data from FlightInfo")
-  print(" 4. Search a flight")
-  print(" 5. Update data some records")
-  print(" 6. Delete data some records")
-  print(" 7. Exit\n")
-
-  __choose_menu = int(input("Enter your choice: "))
-  db_ops = DBOperations()
-  if __choose_menu == 1:
-    db_ops.create_table()
-  elif __choose_menu == 2:
-    db_ops.insert_data()
-  elif __choose_menu == 3:
-    db_ops.select_all()
-  elif __choose_menu == 4:
-    db_ops.search_data()
-  elif __choose_menu == 5:
-    db_ops.update_data()
-  elif __choose_menu == 6:
-    db_ops.delete_data()
-  elif __choose_menu == 7:
-    exit(0)
-  else:
-    print("Invalid Choice")
+if __name__ == "__main__":
+    main()

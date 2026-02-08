@@ -1,0 +1,109 @@
+import sqlite3
+conn = sqlite3.connect("FlightManagement.db")
+
+
+# UPDATE DESTINATIONS
+
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'London Heathrow', Country = 'UK', DestinationDate = '2026-04-01', City = 'London' "
+    "WHERE DestinationID = 'DST01'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Charles de Gaulle', Country = 'France', DestinationDate = '2026-04-02', City = 'Paris' "
+    "WHERE DestinationID = 'DST02'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Schiphol Airport', Country = 'Netherlands', DestinationDate = '2026-04-03', City = 'Amsterdam' "
+    "WHERE DestinationID = 'DST03'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'John F Kennedy Intl', Country = 'USA', DestinationDate = '2026-04-04', City = 'New York' "
+    "WHERE DestinationID = 'DST04'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Dubai International', Country = 'UAE', DestinationDate = '2026-04-05', City = 'Dubai' "
+    "WHERE DestinationID = 'DST05'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Frankfurt Airport', Country = 'Germany', DestinationDate = '2026-04-06', City = 'Frankfurt' "
+    "WHERE DestinationID = 'DST06'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Madrid Barajas', Country = 'Spain', DestinationDate = '2026-04-07', City = 'Madrid' "
+    "WHERE DestinationID = 'DST07'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Fiumicino Airport', Country = 'Italy', DestinationDate = '2026-04-08', City = 'Rome' "
+    "WHERE DestinationID = 'DST08'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Toronto Pearson', Country = 'Canada', DestinationDate = '2026-04-09', City = 'Toronto' "
+    "WHERE DestinationID = 'DST09'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Dublin Airport', Country = 'Ireland', DestinationDate = '2026-04-10', City = 'Dublin' "
+    "WHERE DestinationID = 'DST10'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Haneda Airport', Country = 'Japan', DestinationDate = '2026-04-11', City = 'Tokyo' "
+    "WHERE DestinationID = 'DST11'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Changi Airport', Country = 'Singapore', DestinationDate = '2026-04-12', City = 'Singapore' "
+    "WHERE DestinationID = 'DST12'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Sydney Kingsford Smith', Country = 'Australia', DestinationDate = '2026-04-13', City = 'Sydney' "
+    "WHERE DestinationID = 'DST13'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Incheon International', Country = 'South Korea', DestinationDate = '2026-04-14', City = 'Seoul' "
+    "WHERE DestinationID = 'DST14'"
+)
+
+conn.execute(
+    "UPDATE destination "
+    "SET Name = 'Zurich Airport', Country = 'Switzerland', DestinationDate = '2026-04-15', City = 'Zurich' "
+    "WHERE DestinationID = 'DST15'"
+)
+
+conn.commit()
+
+
+# VIEW UPDATED DESTINATIONS
+
+print("Updated destinations:")
+for row in conn.execute(
+    "SELECT DestinationID, Name, Country, DestinationDate, City FROM destination ORDER BY DestinationID"
+):
+    print(row)
+
+conn.close()
